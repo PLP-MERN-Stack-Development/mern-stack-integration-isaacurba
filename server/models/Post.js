@@ -66,16 +66,14 @@ const PostSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Create slug from title before saving
-PostSchema.pre("save", function (next) {
+// Use async function and remove 'next'
+PostSchema.pre("validate", async function () {
   if (this.isNew || this.isModified("title")) {
     this.slug = this.title
       .toLowerCase()
       .replace(/[^\w ]+/g, "")
       .replace(/ +/g, "-");
   }
-
-  next();
 });
 
 // Virtual for post URL
