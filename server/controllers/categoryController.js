@@ -1,6 +1,9 @@
-const Category = require('../models/Category');
-const slugify = require('slugify');
+// server/controllers/categoryController.js - CLEANED UP
 
+const Category = require('../models/Category');
+// IMPORTANT: DO NOT require slugify here. It belongs in the model.
+
+// Custom error class (for central error handling in server.js)
 class ApiError extends Error {
   constructor(message, statusCode) {
     super(message);
@@ -26,22 +29,21 @@ exports.getCategories = async (req, res, next) => {
 
 // @desc    Create a new category
 // @route   POST /api/categories
-// @access  Private
+// @access  Private 
 exports.createCategory = async (req, res, next) => {
   try {
     const { name, description } = req.body;
 
+    // 1. Check for duplicate name
     let category = await Category.findOne({ name });
     if (category) {
       return next(new ApiError('Category already exists', 400));
     }
 
-    const slug = slugify(name, { lower: true, strict: true });
-
-    category = await Category.create({
-      name,
-      description,
-      slug,
+    // 2. Create the category. The model's pre('save') hook handles slug generation.
+    category = await Category.create({ 
+      name, 
+      description 
     });
 
     res.status(201).json({
@@ -49,10 +51,16 @@ exports.createCategory = async (req, res, next) => {
       data: category,
     });
   } catch (err) {
+    // Handle Mongoose validation or duplicate key errors here
     if (err.name === 'ValidationError') {
       const message = Object.values(err.errors).map(val => val.message);
       return next(new ApiError(message.join(', '), 400));
     }
+    // Handle duplicate key error (code 11000)
+    if (err.code === 11000) {
+      return next(new ApiError('Duplicate field value entered', 400));
+    }
     next(err);
   }
 };
+// You would also add update/delete methods here if needed.
