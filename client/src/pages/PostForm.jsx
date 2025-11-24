@@ -1,39 +1,45 @@
+// client/src/pages/PostForm.jsx
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { postService, categoryService } from '../services/api';
 
 const PostForm = () => {
-  const { id } = useParams(); 
-  const navigate = useNavigate(); 
-  // --- 1. Form State Management ---
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  // 1. Added 'isPublished' to the initial state
   const [formData, setFormData] = useState({
     title: '',
     content: '',
     excerpt: '',
-    category: '', // Stores the selected category ID
+    category: '',
+    isPublished: true, // Default to true so new posts appear immediately!
   });
   
-  const [categories, setCategories] = useState([]); // To populate the dropdown
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // --- 2. Load Data (Categories & Existing Post) ---
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        // Fetch all categories for the dropdown
         const cats = await categoryService.getAllCategories();
-        setCategories(cats);
+        // Handle different response structures just in case
+        setCategories(Array.isArray(cats) ? cats : cats.data || []);
 
-        // If we are editing, fetch the existing post data
         if (id) {
-          const post = await postService.getPost(id);
+          const postResponse = await postService.getPost(id);
+          const post = postResponse.data || postResponse;
+          
           setFormData({
             title: post.title,
             content: post.content,
             excerpt: post.excerpt || '',
-            category: post.category._id, // Ensure we set the ID, not the object
+            // Handle populated category object OR plain ID string
+            category: post.category?._id || post.category || '',
+            isPublished: post.isPublished, // Load existing publish status
           });
         }
       } catch (err) {
@@ -47,29 +53,26 @@ const PostForm = () => {
     loadData();
   }, [id]);
 
-  // --- 3. Handle Input Changes ---
   const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      // Handle Checkbox (checked) vs Text Input (value)
+      [name]: type === 'checkbox' ? checked : value,
     });
   };
 
-  // --- 4. Handle Form Submission ---
   const handleSubmit = async (e) => {
-    e.preventDefault(); // Prevent page reload
+    e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
       if (id) {
-        // Update existing post
         await postService.updatePost(id, formData);
       } else {
-        // Create new post
         await postService.createPost(formData);
       }
-      // Redirect to Home Page on success
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong');
@@ -81,7 +84,7 @@ const PostForm = () => {
   if (loading && !categories.length) return <div className="text-center p-10">Loading form...</div>;
 
   return (
-    <div className="max-w-2xl mx-auto bg-white p-8 shadow-md rounded-lg">
+    <div className="max-w-2xl mx-auto bg-white p-8 shadow-md rounded-lg border border-gray-200">
       <h1 className="text-3xl font-bold mb-6 text-gray-800">
         {id ? '✏️ Edit Post' : '✍️ Create New Post'}
       </h1>
@@ -90,7 +93,7 @@ const PostForm = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* Title Input */}
+        {/* Title */}
         <div>
           <label className="block text-gray-700 font-semibold mb-2">Title</label>
           <input
@@ -99,44 +102,60 @@ const PostForm = () => {
             value={formData.title}
             onChange={handleChange}
             required
-            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             placeholder="Enter post title"
           />
         </div>
 
-        {/* Category Dropdown */}
-        <div>
-          <label className="block text-gray-700 font-semibold mb-2">Category</label>
-          <select
-            name="category"
-            value={formData.category}
-            onChange={handleChange}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-          >
-            <option value="">Select a category</option>
-            {categories.map((cat) => (
-              <option key={cat._id} value={cat._id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
+        {/* Category & Published Status Row */}
+        <div className="flex gap-6">
+          <div className="flex-1">
+            <label className="block text-gray-700 font-semibold mb-2">Category</label>
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="">Select a category</option>
+              {categories.map((cat) => (
+                <option key={cat._id} value={cat._id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* NEW: Published Checkbox */}
+          <div className="flex items-center pt-8">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                name="isPublished"
+                checked={formData.isPublished}
+                onChange={handleChange}
+                className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+              />
+              <span className="text-gray-700 font-medium">Publish Immediately</span>
+            </label>
+          </div>
         </div>
 
-        {/* Excerpt Input */}
+        {/* Excerpt */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-2">Excerpt (Short Summary)</label>
+          <label className="block text-gray-700 font-semibold mb-2">Excerpt</label>
           <textarea
             name="excerpt"
             value={formData.excerpt}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             rows="2"
-            placeholder="Brief description..."
+            placeholder="Brief summary..."
           />
         </div>
 
-        {/* Content Input */}
+        {/* Content */}
         <div>
           <label className="block text-gray-700 font-semibold mb-2">Content</label>
           <textarea
@@ -144,9 +163,9 @@ const PostForm = () => {
             value={formData.content}
             onChange={handleChange}
             required
-            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             rows="10"
-            placeholder="Write your post content here..."
+            placeholder="Write your masterpiece..."
           />
         </div>
 

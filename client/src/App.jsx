@@ -2,46 +2,33 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 
-// -- Placeholder Pages (We will replace these with real files in the next step) --
-const Home = () => (
-  <div className="text-center p-10">
-    <h1 className="text-4xl font-bold text-gray-800 mb-4">Home Page</h1>
-    <p className="text-gray-600">This is where the list of blog posts will appear.</p>
-  </div>
-);
-
-const CreatePost = () => (
-  <div className="text-center p-10">
-    <h1 className="text-4xl font-bold text-indigo-600 mb-4">✍️ Create a Post</h1>
-    <p className="text-gray-600">This page will hold the form to add new content.</p>
-  </div>
-);
-
-const SinglePost = () => (
-  <div className="text-center p-10">
-    <h1 className="text-4xl font-bold text-gray-800 mb-4">📄 Single Post View</h1>
-    <p className="text-gray-600">Details for a specific post will be shown here.</p>
-  </div>
-);
-
-const EditPost = () => (
-  <div className="text-center p-10">
-    <h1 className="text-4xl font-bold text-orange-500 mb-4">✏️ Edit Post</h1>
-    <p className="text-gray-600">The form to update an existing post.</p>
-  </div>
-);
+// Import the REAL page components we created
+import Home from './pages/Home';
+import SinglePost from './pages/SinglePost';
+import PostForm from './pages/PostForm'; // Handles both Create and Edit
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
+        
+        {/* Show the Post List at the root URL */}
         <Route index element={<Home />} />
+        
+        {/* Show a single post when URL is /posts/some-slug */}
         <Route path="posts/:slug" element={<SinglePost />} />
-        <Route path="create" element={<CreatePost />} />
-        <Route path="edit/:id" element={<EditPost />} />
+        
+        {/* Show the form when creating a new post */}
+        <Route path="create" element={<PostForm />} />
+        
+        {/* Show the SAME form when editing, but pass the ID */}
+        <Route path="edit/:id" element={<PostForm />} />
+        
         {/* 404 Page */}
-        <Route path="*" element={ 
-          <div className="text-center mt-20 text-2xl font-bold text-red-500">404 - Page Not Found</div>
+        <Route path="*" element={
+          <div className="text-center mt-20 text-2xl font-bold text-red-500">
+            404 - Page Not Found
+          </div>
         } />
       </Route>
     </Routes>

@@ -1,9 +1,10 @@
 const Post = require("../models/Post.js");
 const Category = require("../models/Category.js");
 const User = require("../models/User.js");
+const mongoose = require("mongoose"); // <--- Added this import for ID validation
 const { validationResult } = require("express-validator");
 
-// Custom error class (re-defined here for clarity, but ideally in a separate utils file)
+// Custom error class
 class ApiError extends Error {
   constructor(message, statusCode) {
     super(message);
@@ -11,7 +12,7 @@ class ApiError extends Error {
   }
 }
 
-// @desc    Get all posts (including pagination and filtering for Task 5)
+// @desc    Get all posts (including pagination and filtering)
 // @route   GET /api/posts
 // @access  Public
 exports.getPosts = async (req, res, next) => {
@@ -21,23 +22,24 @@ exports.getPosts = async (req, res, next) => {
     const startIndex = (page - 1) * limit;
 
     const query = { isPublished: true }; // Only show published posts by default
+    
+    // Filter by category if provided
     if (req.query.category) {
-      // Find category ID by name/slug
       const category = await Category.findOne({ slug: req.query.category });
       if (category) {
         query.category = category._id;
       }
     }
 
-    // Total documents count for pagination metadata
+    // Total documents count for pagination
     const total = await Post.countDocuments(query);
 
     const posts = await Post.find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(startIndex)
-      .populate("category", "name slug") // Populate category details
-      .populate("author", "username"); // Populate author details
+      .populate("category", "name slug")
+      .populate("author", "username");
 
     res.status(200).json({
       success: true,
@@ -56,10 +58,19 @@ exports.getPosts = async (req, res, next) => {
 // @access  Public
 exports.getPost = async (req, res, next) => {
   try {
-    // Find by _id or slug
-    let post = await Post.findOne({
-      $or: [{ _id: req.params.id }, { slug: req.params.id }],
-    })
+    const { id } = req.params;
+    let query;
+
+    // 1. Check if the parameter is a valid MongoDB ObjectId
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      // If it IS an ID, search by _id OR slug (in case slug looks like an ID)
+      query = { $or: [{ _id: id }, { slug: id }] };
+    } else {
+      // If it is NOT an ID (it's a text slug), search ONLY by slug
+      query = { slug: id };
+    }
+
+    let post = await Post.findOne(query)
       .populate("category", "name slug")
       .populate("author", "username")
       .populate("comments.user", "username");
@@ -68,15 +79,11 @@ exports.getPost = async (req, res, next) => {
       return next(new ApiError("Post not found", 404));
     }
 
-    // Increment view count (using the method defined in Post.js)
+    // Increment view count
     await post.incrementViewCount();
 
     res.status(200).json({ success: true, data: post });
   } catch (err) {
-    // Check if the error is due to an invalid ObjectId format
-    if (err.kind === "ObjectId") {
-      return next(new ApiError("Invalid post ID", 400));
-    }
     next(err);
   }
 };
@@ -85,33 +92,30 @@ exports.getPost = async (req, res, next) => {
 // @route   POST /api/posts
 // @access  Private (Requires Auth)
 exports.createPost = async (req, res, next) => {
-  // Check for validation errors from express-validator
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return next(new ApiError(errors.array()[0].msg, 400));
   }
 
   try {
-    const { title, content, category, excerpt, tags } = req.body;
+    const { title, content, category, excerpt, tags, isPublished } = req.body;
 
-    // Find the actual Category ObjectId (assuming 'category' is the ID for now)
     const categoryId = await Category.findById(category);
     if (!categoryId) {
       return next(new ApiError("Invalid category ID", 400));
     }
 
-    // Temporary: Since auth is not implemented, we manually set a dummy author for now.
-    // Replace this with req.user.id when auth is ready (Task 5).
-    // Check if a user exists
+    // Check if a user exists (Temporary logic until Auth is fully implemented)
     let dummyUser = await User.findOne({});
-
-    // If no user found, create one and UPDATE the dummyUser variable
+    
+    // If no user found, create one and assign it to dummyUser variable
     if (!dummyUser) {
       dummyUser = await User.create({
         username: "system_author",
         email: "system@blog.com",
       });
     }
+    
     const authorId = req.user ? req.user.id : dummyUser._id;
 
     const post = await Post.create({
@@ -121,7 +125,7 @@ exports.createPost = async (req, res, next) => {
       excerpt,
       tags: tags ? tags.split(",").map((tag) => tag.trim()) : [],
       author: authorId,
-      isPublished: req.body.isPublished || false,
+      isPublished: isPublished !== undefined ? isPublished : false,
     });
 
     res.status(201).json({ success: true, data: post });
@@ -140,7 +144,6 @@ exports.updatePost = async (req, res, next) => {
   }
 
   try {
-    // The slug is only updated if the title changes (handled by the pre-save hook)
     const post = await Post.findByIdAndUpdate(req.params.id, req.body, {
       new: true, // return the updated document
       runValidators: true, // re-run schema validators
@@ -149,8 +152,6 @@ exports.updatePost = async (req, res, next) => {
     if (!post) {
       return next(new ApiError("Post not found", 404));
     }
-
-    // Future check (Task 5): Ensure req.user.id matches post.author
 
     res.status(200).json({ success: true, data: post });
   } catch (err) {
@@ -168,8 +169,6 @@ exports.deletePost = async (req, res, next) => {
     if (!post) {
       return next(new ApiError("Post not found", 404));
     }
-
-    // Future check (Task 5): Ensure req.user.id matches post.author
 
     res.status(200).json({ success: true, data: {} });
   } catch (err) {
