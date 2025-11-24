@@ -1,5 +1,3 @@
-// api.js - API service for making requests to the backend
-
 import axios from 'axios';
 
 // Create axios instance with base URL
@@ -42,7 +40,7 @@ api.interceptors.response.use(
 export const postService = {
   // Get all posts with optional pagination and filters
   getAllPosts: async (page = 1, limit = 10, category = null) => {
-    let url = `/posts?page=${page}&limit=${limit}`;
+    let url = `/posts?page=${page}&limit=${limit}`; 
     if (category) {
       url += `&category=${category}`;
     }
