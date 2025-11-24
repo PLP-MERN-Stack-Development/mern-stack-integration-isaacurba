@@ -1,35 +1,30 @@
+// client/src/App.jsx
+
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 
-// Import the REAL page components we created
+// Import Pages
 import Home from './pages/Home';
 import SinglePost from './pages/SinglePost';
-import PostForm from './pages/PostForm'; // Handles both Create and Edit
+import PostForm from './pages/PostForm';
+import Login from './pages/Login';       
+import Register from './pages/Register'; 
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
-        
-        {/* Show the Post List at the root URL */}
         <Route index element={<Home />} />
-        
-        {/* Show a single post when URL is /posts/some-slug */}
         <Route path="posts/:slug" element={<SinglePost />} />
-        
-        {/* Show the form when creating a new post */}
         <Route path="create" element={<PostForm />} />
-        
-        {/* Show the SAME form when editing, but pass the ID */}
         <Route path="edit/:id" element={<PostForm />} />
         
-        {/* 404 Page */}
-        <Route path="*" element={
-          <div className="text-center mt-20 text-2xl font-bold text-red-500">
-            404 - Page Not Found
-          </div>
-        } />
+        {/* Auth Routes */}
+        <Route path="login" element={<Login />} />       {/* <--- NEW ROUTE */}
+        <Route path="register" element={<Register />} /> {/* <--- NEW ROUTE */}
+
+        <Route path="*" element={<div className="text-center mt-20 text-red-500">404 - Page Not Found</div>} />
       </Route>
     </Routes>
   );
